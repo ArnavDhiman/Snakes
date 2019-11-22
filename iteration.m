@@ -19,7 +19,7 @@ function [new_x, new_y]= iteration(a_inverse, x, y, external_energy, gamma, fx, 
       new_x(new_x < 1) = 1;
       new_x(new_x > max_x) = max_x;
 
-      if(constraint_type == "Hard")
+      if(constraint_type == "Hard" & click == 1)
         a_x = new_x;
         a_y = new_y;
         a_x(index_new_point) = click_x;

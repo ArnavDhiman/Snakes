@@ -182,7 +182,6 @@ function Snake(hObject, eventdata, handles)
             x1(index_new_point) = handles.k * force_x + x1(index_new_point);
             y1(index_new_point) = handles.k * force_y + y1(index_new_point);
           end
-          click = 0;
         end
         [x1, y1] = iteration(a_inverse, x1, y1, external_energy, gamma, fx, fy);
         imshow(handles.Image,'parent', handles.Image_Out);
@@ -191,6 +190,7 @@ function Snake(hObject, eventdata, handles)
         if(mod(i, steps) == 0)
             fprintf('%d/%d interations\n', i, N);
         end
+        click = 0;
         pause(0.1);
     end
 
