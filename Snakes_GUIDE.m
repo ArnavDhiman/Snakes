@@ -22,7 +22,7 @@ function varargout = Snakes_GUIDE(varargin)
 
 % Edit the above text to modify the response to help Snakes_GUIDE
 
-% Last Modified by GUIDE v2.5 21-Nov-2019 16:13:35
+% Last Modified by GUIDE v2.5 21-Nov-2019 18:39:12
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -42,7 +42,172 @@ else
     gui_mainfcn(gui_State, varargin{:});
 end
 % End initialization code - DO NOT EDIT
+end
 
+function UploadImage(hObject, eventdata, handles,imageFile)
+    try
+        handles.Image = imread(imageFile);
+    catch ME
+        % If problem reading image, display error message
+        %uialert(app.UIFigure, ME.message, 'Image Error');
+        return;
+    end
+    % axes(handles.Image_Out)
+    imshow(handles.Image, 'Parent', handles.Image_Out)
+    %hold(app.UIAxes, "on");
+
+    if (ndims(handles.Image) == 3)
+        handles.Image = rgb2gray(handles.Image);
+    end
+
+    [handles.x,handles.y] = InitializeUISnake(hObject, eventdata, handles);
+    guidata(hObject, handles);
+end
+
+function [x, y] = InitializeUISnake(hObject, eventdata, handles)
+    I = handles.Image;
+    snake = handles.snake_type;
+
+    max_len = max(size(I)) - 1;
+
+    [x, y] = getpts();
+
+    hold(handles.Image_Out, "on");
+
+    x = transpose(x);
+    y = transpose(y);
+
+
+    if(snake =="Closed")
+        x = [x, x(1)];
+        y = [y, y(1)];
+        knots = [x ; y];
+        number_of_points = length(x);
+        distance_points = 1:number_of_points;
+        final_distance_points = 1:0.05:number_of_points;
+        closed_curve = spline(distance_points, knots, final_distance_points);
+        closed_curve(closed_curve < 1) = 1;
+        closed_curve(closed_curve > max_len) = max_len;
+        x_new = closed_curve(1,:);
+        y_new = closed_curve(2,:);
+        plot(handles.Image_Out, x ,y, 'o', x_new, y_new, '--');
+        x = x_new;
+        y = y_new;
+    else
+        knots = [x ; y];
+        number_of_points = length(x);
+        distance_points = 1:number_of_points;
+        final_distance_points = 1:0.09:number_of_points;
+        Open_Curve = spline(distance_points, knots, final_distance_points);
+        Open_Curve(Open_Curve < 1) = 1;
+        Open_Curve(Open_Curve > max_len) = max_len;
+        x_new = Open_Curve(1,:);
+        y_new = Open_Curve(2,:);
+        plot(handles.Image_Out,x ,y, 'o', x_new, y_new, '--');
+        x = x_new;
+        y = y_new;
+    end
+    hold(handles.Image_Out, "on");
+end
+
+function Snake(hObject, eventdata, handles)
+    N = handles.iterations
+    snakeType = handles.snake_type
+    alpha = handles.alpha
+    beta = handles.beta
+    sigma = handles.sigma
+    gamma = handles.gamma
+    wLine = handles.wLine
+    wEdge = handles.wEdge
+    wTerm = handles.wTerm
+
+    x1 = handles.x;
+    y1 = handles.y;
+    I = handles.Image;
+
+    edgeFunction = handles.edge_function;
+
+    I_after_gaussian_filter =  double(imgaussfilt(I, sigma));
+    external_energy = ExternalEnergyCal(I_after_gaussian_filter, wLine, wEdge, wTerm);
+
+    % calcualte the inverse matrix of A
+    disp("points "+size(x1))
+    a_inverse = InternalEnergyCal(size(x1, 2), alpha, beta, gamma, snakeType);
+    x1 = x1';
+    y1 = y1';
+
+    edge_x = [1 0 -1;2 0 -2; 1 0 -1];
+    edge_y = [1 2 1; 0 0 0; -1 -2 -1];
+
+    if(edgeFunction == "Sobel")
+        edge_x = [1 0 -1;2 0 -2; 1 0 -1];
+        edge_y = [1 2 1; 0 0 0; -1 -2 -1];
+    end
+
+    if(edgeFunction == "Prewitt")
+        edge_x = [1 0 -1;1 0 -1; 1 0 -1];
+        edge_y = [1 1 1; 0 0 0; -1 -1 -1];
+    end
+     if(edgeFunction == "Roberts")
+        edge_x = [1 0 0; 0 -1 0; 0 0 0];
+        edge_y = [0 1 0; -1 0 0; 0 0 0];
+     end
+
+    fx = conv2(external_energy, edge_x, 'same');
+    fy = conv2(external_energy, edge_y, 'same');
+
+    steps = floor(N/30);
+
+    set(gcf,'WindowButtonDownFcn',{@ButttonDownFcn});
+    global click;
+    global click_x;
+    global click_y;
+    global index_new_point;
+    for i = 1:N
+        if(click == 1)
+          distance_measurement_vector = euclidean_distance([x1 y1], [click_x click_y]);
+          close_point = min(distance_measurement_vector);
+          index_new_point = find(distance_measurement_vector == close_point);
+          force_x = click_x - x1(index_new_point)
+          force_y = click_y - y1(index_new_point)
+          x1(index_new_point) = handles.k * force_x + x1(index_new_point);
+          y1(index_new_point) = handles.k * force_y + y1(index_new_point);
+        end
+        [x1, y1] = iteration(a_inverse, x1, y1, external_energy, gamma, fx, fy);
+        imshow(handles.Image,'parent', handles.Image_Out);
+        hold(handles.Image_Out, "on");
+        plot(handles.Image_Out,x1, y1, 'r');
+        if(mod(i, steps) == 0)
+            fprintf('%d/%d interations\n', i, N);
+        end
+        pause(0.1);
+    end
+
+    if(mod(i, steps) == 0)
+        fprintf('%d/%d interations\n', N, N);
+    end
+end
+
+function distance_array = euclidean_distance(vector_1, vector_2)
+    d = abs(vector_1 - vector_2);
+    distance_array = [];
+    for k1 = 1:length(d)
+        distance = norm(d(k1));
+        distance_array = [distance_array, distance];
+    end
+end
+
+function ButttonDownFcn(src,event)
+    global click;
+    global click_x;
+    global click_y;
+    global first_click
+    first_click =1;
+    pt = get(gca,'CurrentPoint')
+    click_x = pt(1,1)
+    click_y = pt(1,2)
+    click = 1;
+end
 
 % --- Executes just before Snakes_GUIDE is made visible.
 function Snakes_GUIDE_OpeningFcn(hObject, eventdata, handles, varargin)
@@ -55,15 +220,38 @@ function Snakes_GUIDE_OpeningFcn(hObject, eventdata, handles, varargin)
 % Choose default command line output for Snakes_GUIDE
 handles.output = hObject;
 
-% Update handles structure
+handles.iterations = str2num(get(handles.Iteration_Val,'String'));
+handles.alpha = str2num(get(handles.Alpha_Val,'String'));
+handles.beta = str2num(get(handles.Beta_Val,'String'));
+handles.sigma = str2num(get(handles.Sigma_Val,'String'));
+handles.gamma = str2num(get(handles.Gamma_Val,'String'));
+handles.wLine = str2num(get(handles.WLine_Val,'String'));
+handles.wEdge = str2num(get(handles.WEdge_Val,'String'));
+handles.wTerm = str2num(get(handles.WTerm_Val,'String'));
+
+
+if get(handles.sobel,'Value') == 1
+  handles.edge_function = "Sobel";
+elseif get(handles.prewitt,'Value') == 1
+  handles.edge_function = "Prewitt";
+else
+  handles.edge_function = "Roberts";
+end
+
+if get(handles.Snake_Open,'Value') == 1
+  handles.snake_type = "Open";
+else
+  handles.snake_type = "Closed";
+end
+
 guidata(hObject, handles);
+end
 
 % UIWAIT makes Snakes_GUIDE wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
 
-
 % --- Outputs from this function are returned to the command line.
-function varargout = Snakes_GUIDE_OutputFcn(hObject, eventdata, handles) 
+function varargout = Snakes_GUIDE_OutputFcn(hObject, eventdata, handles)
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -71,28 +259,66 @@ function varargout = Snakes_GUIDE_OutputFcn(hObject, eventdata, handles)
 
 % Get default command line output from handles structure
 varargout{1} = handles.output;
-
+end
 
 % --- Executes on button press in Cancel_Button.
 function Cancel_Button_Callback(hObject, eventdata, handles)
 % hObject    handle to Cancel_Button (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
+end
 
 % --- Executes on button press in Start_Button.
 function Start_Button_Callback(hObject, eventdata, handles)
 % hObject    handle to Start_Button (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% handles    structure with handles and user data (see GUIDATA)\
 
+handles.iterations = str2num(get(handles.Iteration_Val,'String'))
+handles.alpha = str2num(get(handles.Alpha_Val,'String'))
+handles.beta = str2num(get(handles.Beta_Val,'String'))
+handles.sigma = str2num(get(handles.Sigma_Val,'String'))
+handles.gamma = str2num(get(handles.Gamma_Val,'String'))
+handles.wLine = str2num(get(handles.WLine_Val,'String'))
+handles.wEdge = str2num(get(handles.WEdge_Val,'String'))
+handles.wTerm = str2num(get(handles.WTerm_Val,'String'))
+
+
+if get(handles.sobel,'Value') == 1
+  handles.edge_function = "Sobel"
+elseif get(handles.prewitt,'Value') == 1
+  handles.edge_function = "Prewitt"
+else
+  handles.edge_function = "Roberts"
+end
+
+if get(handles.Snake_Open,'Value') == 1
+  handles.snake_type = "Open"
+else
+  handles.snake_type = "Closed"
+end
+disp(handles.snake_type)
+disp(handles.edge_function)
+
+global click;
+global fix_point
+global first_click
+click = 0;
+fix_point = double.empty(3,0);
+first_click = 0;
+
+handles.k =1.25;
+
+Snake(hObject, eventdata, handles)
+guidata(hObject, handles);
+end
 
 % --- Executes on button press in Select_Image.
 function Select_Image_Callback(hObject, eventdata, handles)
 % hObject    handle to Select_Image (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
+end
 
 
 function Iteration_Val_Callback(hObject, eventdata, handles)
@@ -102,7 +328,7 @@ function Iteration_Val_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of Iteration_Val as text
 %        str2double(get(hObject,'String')) returns contents of Iteration_Val as a double
-
+end
 
 % --- Executes during object creation, after setting all properties.
 function Iteration_Val_CreateFcn(hObject, eventdata, handles)
@@ -115,21 +341,21 @@ function Iteration_Val_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+end
 
 
-
-function Aplha_Val_Callback(hObject, eventdata, handles)
-% hObject    handle to Aplha_Val (see GCBO)
+function Alpha_Val_Callback(hObject, eventdata, handles)
+% hObject    handle to Alpha_Val (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of Aplha_Val as text
-%        str2double(get(hObject,'String')) returns contents of Aplha_Val as a double
-
+% Hints: get(hObject,'String') returns contents of Alpha_Val as text
+%        str2double(get(hObject,'String')) returns contents of Alpha_Val as a double
+end
 
 % --- Executes during object creation, after setting all properties.
-function Aplha_Val_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to Aplha_Val (see GCBO)
+function Alpha_Val_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Alpha_Val (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -138,8 +364,7 @@ function Aplha_Val_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
-
+end
 
 function Beta_Val_Callback(hObject, eventdata, handles)
 % hObject    handle to Beta_Val (see GCBO)
@@ -148,7 +373,7 @@ function Beta_Val_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of Beta_Val as text
 %        str2double(get(hObject,'String')) returns contents of Beta_Val as a double
-
+end
 
 % --- Executes during object creation, after setting all properties.
 function Beta_Val_CreateFcn(hObject, eventdata, handles)
@@ -161,7 +386,7 @@ function Beta_Val_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
+end
 
 
 function Gamma_Val_Callback(hObject, eventdata, handles)
@@ -171,7 +396,7 @@ function Gamma_Val_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of Gamma_Val as text
 %        str2double(get(hObject,'String')) returns contents of Gamma_Val as a double
-
+end
 
 % --- Executes during object creation, after setting all properties.
 function Gamma_Val_CreateFcn(hObject, eventdata, handles)
@@ -184,6 +409,7 @@ function Gamma_Val_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+end
 
 
 
@@ -194,7 +420,7 @@ function Sigma_Val_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of Sigma_Val as text
 %        str2double(get(hObject,'String')) returns contents of Sigma_Val as a double
-
+end
 
 % --- Executes during object creation, after setting all properties.
 function Sigma_Val_CreateFcn(hObject, eventdata, handles)
@@ -207,7 +433,19 @@ function Sigma_Val_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+end
 
+
+function WEdge_Val_Callback(hObject, eventdata, handles)
+% hObject    handle to WEdge_Val (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of WEdge_Val as text
+%        str2double(get(hObject,'String')) returns contents of WEdge_Val as a double
+
+% --- Executes during object creation, after setting all properties.
+end
 
 
 function WLine_Val_Callback(hObject, eventdata, handles)
@@ -217,9 +455,9 @@ function WLine_Val_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of WLine_Val as text
 %        str2double(get(hObject,'String')) returns contents of WLine_Val as a double
+end
 
 
-% --- Executes during object creation, after setting all properties.
 function WLine_Val_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to WLine_Val (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -230,21 +468,11 @@ function WLine_Val_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
-
-
-function edit7_Callback(hObject, eventdata, handles)
-% hObject    handle to edit7 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edit7 as text
-%        str2double(get(hObject,'String')) returns contents of edit7 as a double
-
+end
 
 % --- Executes during object creation, after setting all properties.
-function edit7_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit7 (see GCBO)
+function WEdge_Val_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to WEdge_Val (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -253,21 +481,21 @@ function edit7_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+end
 
 
-
-function edit8_Callback(hObject, eventdata, handles)
-% hObject    handle to edit8 (see GCBO)
+function WTerm_Val_Callback(hObject, eventdata, handles)
+% hObject    handle to WTerm_Val (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit8 as text
-%        str2double(get(hObject,'String')) returns contents of edit8 as a double
-
+% Hints: get(hObject,'String') returns contents of WTerm_Val as text
+%        str2double(get(hObject,'String')) returns contents of WTerm_Val as a double
+end
 
 % --- Executes during object creation, after setting all properties.
-function edit8_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit8 (see GCBO)
+function WTerm_Val_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to WTerm_Val (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -275,4 +503,24 @@ function edit8_CreateFcn(hObject, eventdata, handles)
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
+end
+end
+
+% --- Executes on key press with focus on Select_Image and none of its controls.
+function Select_Image_KeyPressFcn(hObject, eventdata, handles)
+% hObject    handle to Select_Image (see GCBO)
+% eventdata  structure with the following fields (see MATLAB.UI.CONTROL.UICONTROL)
+%	Key: name of the key that was pressed, in lower case
+%	Character: character interpretation of the key(s) that was pressed
+%	Modifier: name(s) of the modifier key(s) (i.e., control, shift) pressed
+% handles    structure with handles and user data (see GUIDATA)
+     % Display uigetfile dialog
+    filterspec = {'*.jpg;*.tif;*.png;*.gif','All Image Files'};
+    [f, p] = uigetfile(filterspec);
+
+    % Make sure user didn't cancel uigetfile dialog
+    if (ischar(p))
+       fname = [p f];
+       UploadImage(hObject,eventdata, handles,fname);
+    end
 end
