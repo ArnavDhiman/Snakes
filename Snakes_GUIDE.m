@@ -22,7 +22,7 @@ function varargout = Snakes_GUIDE(varargin)
 
 % Edit the above text to modify the response to help Snakes_GUIDE
 
-% Last Modified by GUIDE v2.5 21-Nov-2019 18:39:12
+% Last Modified by GUIDE v2.5 21-Nov-2019 23:26:01
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -111,15 +111,15 @@ function [x, y] = InitializeUISnake(hObject, eventdata, handles)
 end
 
 function Snake(hObject, eventdata, handles)
-    N = handles.iterations
-    snakeType = handles.snake_type
-    alpha = handles.alpha
-    beta = handles.beta
-    sigma = handles.sigma
-    gamma = handles.gamma
-    wLine = handles.wLine
-    wEdge = handles.wEdge
-    wTerm = handles.wTerm
+    N = handles.iterations;
+    snakeType = handles.snake_type;
+    alpha = handles.alpha;
+    beta = handles.beta;
+    sigma = handles.sigma;
+    gamma = handles.gamma;
+    wLine = handles.wLine;
+    wEdge = handles.wEdge;
+    wTerm = handles.wTerm;
 
     x1 = handles.x;
     y1 = handles.y;
@@ -163,15 +163,26 @@ function Snake(hObject, eventdata, handles)
     global click_x;
     global click_y;
     global index_new_point;
+    global constraint_type;
+
     for i = 1:N
         if(click == 1)
           distance_measurement_vector = euclidean_distance([x1 y1], [click_x click_y]);
           close_point = min(distance_measurement_vector);
-          index_new_point = find(distance_measurement_vector == close_point);
-          force_x = click_x - x1(index_new_point)
-          force_y = click_y - y1(index_new_point)
-          x1(index_new_point) = handles.k * force_x + x1(index_new_point);
-          y1(index_new_point) = handles.k * force_y + y1(index_new_point);
+          if(constraint_type == "Soft")
+            index = find(distance_measurement_vector == close_point);
+            force_x = click_x - x1(index);
+            force_y = click_y - y1(index);
+            x1(index) = handles.k * force_x + x1(index);
+            y1(index) = handles.k * force_y + y1(index);
+          else
+            index_new_point = find(distance_measurement_vector == close_point);
+            force_x = click_x - x1(index_new_point);
+            force_y = click_y - y1(index_new_point);
+            x1(index_new_point) = handles.k * force_x + x1(index_new_point);
+            y1(index_new_point) = handles.k * force_y + y1(index_new_point);
+          end
+          click = 0;
         end
         [x1, y1] = iteration(a_inverse, x1, y1, external_energy, gamma, fx, fy);
         imshow(handles.Image,'parent', handles.Image_Out);
@@ -201,11 +212,11 @@ function ButttonDownFcn(src,event)
     global click;
     global click_x;
     global click_y;
-    global first_click
+    global first_click;
     first_click =1;
-    pt = get(gca,'CurrentPoint')
-    click_x = pt(1,1)
-    click_y = pt(1,2)
+    pt = get(gca,'CurrentPoint');
+    click_x = pt(1,1);
+    click_y = pt(1,2);
     click = 1;
 end
 
@@ -244,6 +255,12 @@ else
   handles.snake_type = "Closed";
 end
 
+if get(handles.soft,'Value') == 1
+  handles.constraint_type = "Soft";
+else
+  handles.constraint_type = "Hard";
+end
+
 guidata(hObject, handles);
 end
 
@@ -274,42 +291,48 @@ function Start_Button_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)\
 
-handles.iterations = str2num(get(handles.Iteration_Val,'String'))
-handles.alpha = str2num(get(handles.Alpha_Val,'String'))
-handles.beta = str2num(get(handles.Beta_Val,'String'))
-handles.sigma = str2num(get(handles.Sigma_Val,'String'))
-handles.gamma = str2num(get(handles.Gamma_Val,'String'))
-handles.wLine = str2num(get(handles.WLine_Val,'String'))
-handles.wEdge = str2num(get(handles.WEdge_Val,'String'))
-handles.wTerm = str2num(get(handles.WTerm_Val,'String'))
+handles.iterations = str2num(get(handles.Iteration_Val,'String'));
+handles.alpha = str2num(get(handles.Alpha_Val,'String'));
+handles.beta = str2num(get(handles.Beta_Val,'String'));
+handles.sigma = str2num(get(handles.Sigma_Val,'String'));
+handles.gamma = str2num(get(handles.Gamma_Val,'String'));
+handles.wLine = str2num(get(handles.WLine_Val,'String'));
+handles.wEdge = str2num(get(handles.WEdge_Val,'String'));
+handles.wTerm = str2num(get(handles.WTerm_Val,'String'));
 
 
 if get(handles.sobel,'Value') == 1
-  handles.edge_function = "Sobel"
+  handles.edge_function = "Sobel";
 elseif get(handles.prewitt,'Value') == 1
-  handles.edge_function = "Prewitt"
+  handles.edge_function = "Prewitt";
 else
-  handles.edge_function = "Roberts"
+  handles.edge_function = "Roberts";
 end
 
 if get(handles.Snake_Open,'Value') == 1
-  handles.snake_type = "Open"
+  handles.snake_type = "Open";
 else
-  handles.snake_type = "Closed"
+  handles.snake_type = "Closed";
 end
-disp(handles.snake_type)
-disp(handles.edge_function)
+
+if get(handles.soft,'Value') == 1
+  handles.constraint_type = "Soft";
+else
+  handles.constraint_type = "Hard";
+end
 
 global click;
-global fix_point
-global first_click
+global fix_point;
+global first_click;
+global constraint_type;
 click = 0;
 fix_point = double.empty(3,0);
 first_click = 0;
+constraint_type = handles.constraint_type;
 
 handles.k =1.25;
 
-Snake(hObject, eventdata, handles)
+Snake(hObject, eventdata, handles);
 guidata(hObject, handles);
 end
 
@@ -523,4 +546,23 @@ function Select_Image_KeyPressFcn(hObject, eventdata, handles)
        fname = [p f];
        UploadImage(hObject,eventdata, handles,fname);
     end
+end
+
+
+
+% --- Executes when selected object is changed in Constraint_Type.
+function Constraint_Type_SelectionChangedFcn(hObject, eventdata, handles)
+% hObject    handle to the selected object in Constraint_Type
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+  global constraint_type;
+  global click;
+  if get(handles.soft,'Value') == 1
+    handles.constraint_type = "Soft";
+  else
+    handles.constraint_type = "Hard";
+  end
+  constraint_type = handles.constraint_type;
+  click = 0;
+  guidata(hObject, handles);
 end
