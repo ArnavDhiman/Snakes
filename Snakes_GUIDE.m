@@ -22,7 +22,7 @@ function varargout = Snakes_GUIDE(varargin)
 
 % Edit the above text to modify the response to help Snakes_GUIDE
 
-% Last Modified by GUIDE v2.5 21-Nov-2019 23:26:01
+% Last Modified by GUIDE v2.5 22-Nov-2019 21:01:47
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -65,9 +65,18 @@ function UploadImage(hObject, eventdata, handles,imageFile)
 end
 
 function [x, y] = InitializeUISnake(hObject, eventdata, handles)
-    I = handles.Image;
+    
     snake = handles.snake_type;
-
+    
+    if get(handles.closed,'Value') == 1
+      handles.snake_type = "Closed";
+      snake = "Closed";
+    else
+      handles.snake_type = "Open";
+      snake = "Open";
+    end  
+    I = handles.Image;
+    disp(snake)
     max_len = max(size(I)) - 1;
 
     [x, y] = getpts();
@@ -78,7 +87,7 @@ function [x, y] = InitializeUISnake(hObject, eventdata, handles)
     y = transpose(y);
 
 
-    if(snake =="Closed")
+    if(snake == "Closed")
         x = [x, x(1)];
         y = [y, y(1)];
         knots = [x ; y];
@@ -111,6 +120,7 @@ function [x, y] = InitializeUISnake(hObject, eventdata, handles)
 end
 
 function Snake(hObject, eventdata, handles)
+
     N = handles.iterations;
     snakeType = handles.snake_type;
     alpha = handles.alpha;
@@ -140,8 +150,10 @@ function Snake(hObject, eventdata, handles)
     edge_y = [1 2 1; 0 0 0; -1 -2 -1];
 
     if(edgeFunction == "Sobel")
-        edge_x = [1 0 -1;2 0 -2; 1 0 -1];
-        edge_y = [1 2 1; 0 0 0; -1 -2 -1];
+        %edge_x = [1 0 -1;2 0 -2; 1 0 -1];
+        edge_x = [0 0 0; 0 0 0; 0 0 0];
+        %edge_y = [1 2 1; 0 0 0; -1 -2 -1];
+        edge_y = [0 0 0; 0 0 0; 0 0 0];
     end
 
     if(edgeFunction == "Prewitt")
@@ -245,14 +257,15 @@ if get(handles.sobel,'Value') == 1
   handles.edge_function = "Sobel";
 elseif get(handles.prewitt,'Value') == 1
   handles.edge_function = "Prewitt";
-else
+elseif get(handels.roberts,'Value') == 1
   handles.edge_function = "Roberts";
 end
 
-if get(handles.Snake_Open,'Value') == 1
-  handles.snake_type = "Open";
-else
+
+if get(handles.closed,'Value') == 1
   handles.snake_type = "Closed";
+else
+  handles.snake_type = "Open";
 end
 
 if get(handles.soft,'Value') == 1
@@ -309,10 +322,10 @@ else
   handles.edge_function = "Roberts";
 end
 
-if get(handles.Snake_Open,'Value') == 1
-  handles.snake_type = "Open";
-else
+if get(handles.closed,'Value') == 1
   handles.snake_type = "Closed";
+else
+  handles.snake_type = "Open";
 end
 
 if get(handles.soft,'Value') == 1
@@ -565,4 +578,14 @@ function Constraint_Type_SelectionChangedFcn(hObject, eventdata, handles)
   constraint_type = handles.constraint_type;
   click = 0;
   guidata(hObject, handles);
+end
+
+
+% --- Executes on button press in closed.
+function closed_Callback(hObject, eventdata, handles)
+% hObject    handle to closed (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of closed
 end
