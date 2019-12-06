@@ -22,7 +22,7 @@ function varargout = Snakes_GUIDE(varargin)
 
 % Edit the above text to modify the response to help Snakes_GUIDE
 
-% Last Modified by GUIDE v2.5 03-Dec-2019 22:16:25
+% Last Modified by GUIDE v2.5 05-Dec-2019 18:56:01
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -61,21 +61,21 @@ function UploadImage(hObject, eventdata, handles,imageFile)
     end
 
     [handles.x,handles.y,handles.x2, handles.y2] = InitializeUISnake(hObject, eventdata, handles);
-    
+
     guidata(hObject, handles);
 end
 
 function [x, y, x2, y2] = InitializeUISnake(hObject, eventdata, handles)
-    
+
     snake = handles.snake_type;
-    
+
     if get(handles.closed,'Value') == 1
       handles.snake_type = "Closed";
       snake = "Closed";
     else
       handles.snake_type = "Open";
       snake = "Open";
-    end  
+    end
     I = handles.Image;
     disp(snake)
     max_len = max(size(I)) - 1;
@@ -89,9 +89,9 @@ function [x, y, x2, y2] = InitializeUISnake(hObject, eventdata, handles)
 
     x2 = x;
     y2 = y+5;
-    
+
     y= y-5;
-    
+
     if(snake == "Closed")
         x = [x, x(1)];
         y = [y, y(1)];
@@ -110,47 +110,47 @@ function [x, y, x2, y2] = InitializeUISnake(hObject, eventdata, handles)
     else
         knots = [x ; y];
         knots2 = [x2; y2];
-        
+
         number_of_points = length(x);
         distance_points = 1:number_of_points;
         final_distance_points = 1:0.09:number_of_points;
-        
+
         Open_Curve = spline(distance_points, knots, final_distance_points);
         Open_Curve(Open_Curve < 1) = 1;
         Open_Curve(Open_Curve > max_len) = max_len;
-        
+
         x_new = Open_Curve(1,:);
         y_new = Open_Curve(2,:);
-        
+
         plot(handles.Image_Out,x ,y, 'o', x_new, y_new, '--');
-        
+
         x = x_new;
         y = y_new;
-        
+
         Open_Curve2 = spline(distance_points, knots2, final_distance_points);
         Open_Curve2(Open_Curve2 < 1) = 1;
         Open_Curve2(Open_Curve2 > max_len) = max_len;
-        
+
         x_new2 = Open_Curve2(1,:);
         y_new2 = Open_Curve2(2,:);
-        
+
         plot(handles.Image_Out,x2 ,y2, 'o', x_new2, y_new2, '--');
-        
+
         x2 = x_new2;
         y2 = y_new2;
-        
-        
-        
+
+
+
     end
-%     
+%
 %     handles.x = x;
 %     handles.y = y;
-%     
+%
 %     handles.x2 = x2;
 %     handles.y2 = y2;
-    
+
     hold(handles.Image_Out, "on");
-    
+
 end
 
 function Snake(hObject, eventdata, handles)
@@ -167,10 +167,10 @@ function Snake(hObject, eventdata, handles)
 
     x1 = handles.x;
     y1 = handles.y;
-    
+
     x2 = handles.x2;
     y2 = handles.y2;
-    
+
     I = handles.Image;
 
     edgeFunction = handles.edge_function;
@@ -183,7 +183,7 @@ function Snake(hObject, eventdata, handles)
     a_inverse = InternalEnergyCal(size(x1, 2), alpha, beta, gamma, snakeType);
     x1 = x1';
     y1 = y1';
-    
+
     x2 = x2';
     y2 = y2';
 
@@ -227,7 +227,7 @@ function Snake(hObject, eventdata, handles)
           else
             distance_measurement_vector = euclidean_distance([x2 y2], [click_x click_y]);
           end
-          
+
           close_point = min(distance_measurement_vector);
           if(constraint_type == "Soft")
               if (snake_constraint == 1)
@@ -242,8 +242,8 @@ function Snake(hObject, eventdata, handles)
                 force_y = click_y - y2(index);
                 x2(index) = handles.k * force_x + x2(index);
                 y2(index) = handles.k * force_y + y2(index);
-                  
-                  
+
+
               end
 %             index = find(distance_measurement_vector == close_point);
 %             force_x = click_x - x1(index);
@@ -263,7 +263,7 @@ function Snake(hObject, eventdata, handles)
                 force_y = click_y - y2(index_new_point2);
                 x2(index_new_point2) = handles.k * force_x + x2(index_new_point2);
                 y2(index_new_point2) = handles.k * force_y + y2(index_new_point2);
-                  
+
               end
 %             index_new_point = find(distance_measurement_vector == close_point);
 %             force_x = click_x - x1(index_new_point);
@@ -272,11 +272,11 @@ function Snake(hObject, eventdata, handles)
 %             y1(index_new_point) = handles.k * force_y + y1(index_new_point);
           end
         end
-        [x1, y1] = iteration(a_inverse, x1, y1, external_energy, gamma, fx, fy);
-        [x2, y2] = iteration(a_inverse, x2, y2, external_energy, gamma, fx, fy);
-        
+        [x1, y1] = iteration(a_inverse, x1, y1, external_energy, gamma, fx, fy, handles.fixedX);
+        [x2, y2] = iteration(a_inverse, x2, y2, external_energy, gamma, fx, fy, handles.fixedX);
+
         y2 = max(y2, y1+5);
-        
+
         imshow(handles.Image,'parent', handles.Image_Out);
         hold(handles.Image_Out, "on");
         plot(handles.Image_Out,x1, y1, 'r');
@@ -334,7 +334,6 @@ handles.wLine = str2num(get(handles.WLine_Val,'String'));
 handles.wEdge = str2num(get(handles.WEdge_Val,'String'));
 handles.wTerm = str2num(get(handles.WTerm_Val,'String'));
 
-
 if get(handles.sobel,'Value') == 1
   handles.edge_function = "Sobel";
 elseif get(handles.prewitt,'Value') == 1
@@ -360,6 +359,12 @@ if get(handles.snake1,'Value') == 1
   handles.snake_constraint = 1;
 else
   handles.snake_constraint = 2;
+end
+
+if get(handles.fixed_X,'Value') == 1
+  handles.fixedX = true;
+else
+  handles.fixedX = false;
 end
 
 guidata(hObject, handles);
@@ -428,7 +433,11 @@ else
   handles.snake_constraint = 2;
 end
 
-
+if get(handles.fixed_X,'Value') == 1
+  handles.fixedX = true;
+else
+  handles.fixedX = false;
+end
 
 
 global click;
@@ -693,10 +702,10 @@ end
 
 % --- Executes when selected object is changed in constraintSnake.
 function constraintSnake_SelectionChangedFcn(hObject, eventdata, handles)
-% hObject    handle to the selected object in constraintSnake 
+% hObject    handle to the selected object in constraintSnake
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-    
+
     global snake_constraint;
     global click;
     if get(handles.snake1, 'Value') == 1
@@ -704,10 +713,20 @@ function constraintSnake_SelectionChangedFcn(hObject, eventdata, handles)
     else
         handles.snake_constraint = 2;
     end
-    
+
     disp(handles.snake_constraint);
-  
+
     snake_constraint = handles.snake_constraint;
     click = 0;
     guidata(hObject, handles);
+end
+
+
+% --- Executes on button press in fixed_X.
+function fixed_X_Callback(hObject, eventdata, handles)
+% hObject    handle to fixed_X (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of fixed_X
 end

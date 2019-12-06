@@ -1,4 +1,4 @@
-function [new_x, new_y]= iteration(a_inverse, x, y, external_energy, gamma, fx, fy)
+function [new_x, new_y]= iteration(a_inverse, x, y, external_energy, gamma, fx, fy, fixedX)
   global a_x;
   global a_y;
   global fix_point;
@@ -9,15 +9,18 @@ function [new_x, new_y]= iteration(a_inverse, x, y, external_energy, gamma, fx, 
   global click;
   global constraint_type;
   if( first_click==1)
-      new_x = a_inverse * (gamma * x - 0.15*interp2(fx, x, y));
+      if(fixedX)
+        new_x = x;
+      else
+        new_x = a_inverse * (gamma * x - 0.15*interp2(fx, x, y));
+        max_x = max(x);
+        new_x(new_x < 1) = 1;
+        new_x(new_x > max_x) = max_x;
+      end
       new_y = a_inverse * (gamma * y - 0.15*interp2(fy, x, y));
-
-      max_x = max(x);
       max_y = max(y);
       new_y(new_y < 1) = 1;
       new_y(new_y > max_y) = max_y;
-      new_x(new_x < 1) = 1;
-      new_x(new_x > max_x) = max_x;
 
       if(constraint_type == "Hard" & click == 1)
         a_x = new_x;
@@ -36,14 +39,20 @@ function [new_x, new_y]= iteration(a_inverse, x, y, external_energy, gamma, fx, 
           new_y(i) = t_y;
       end
   else
-      new_x = a_inverse * (gamma * x - 0.15*interp2(fx, x, y));
+      if(fixedX)
+        new_x = x;
+      else
+        new_x = a_inverse * (gamma * x - 0.15*interp2(fx, x, y));
+        max_x = max(x);
+        new_x(new_x < 1) = 1;
+        new_x(new_x > max_x) = max_x;
+      end
+
       new_y = a_inverse * (gamma * y - 0.15*interp2(fy, x, y));
-      max_x = max(x);
+
       max_y = max(y);
       new_y(new_y < 1) = 1;
       new_y(new_y > max_y) = max_y;
-      new_x(new_x < 1) = 1;
-      new_x(new_x > max_x) = max_x;
   end
 
 
